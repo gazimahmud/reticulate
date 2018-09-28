@@ -67,6 +67,21 @@ eng_python <- function(options) {
   )
 
   ast <- import("ast", convert = TRUE)
+  builtins <- import_builtins(convert = TRUE)
+  sys <- import("sys", convert = TRUE)
+
+  locals <- py_run_string("locals()")
+  globals <- py_run_string("globals()")
+
+  # handle errors produced during Python code execution
+  handle_error <- function(output) {
+    failed <- inherits(output, "error")
+    if (failed) {
+      error <- py_last_error()
+      message(paste(error$type, error$value, sep = ": "))
+    }
+    failed
+  }
 
   # helper function for extracting range of code, dropping blank lines
   extract <- function(code, range) {
@@ -75,11 +90,40 @@ eng_python <- function(options) {
   }
 
   # helper function for running a snippet of code and capturing output
-  run <- function(snippet) {
-    output <- py_capture_output(py_run_string(snippet, convert = FALSE))
-    if (nzchar(output))
-      output <- sub("\n$", "", output)
-    output
+  run <- function(code) {
+
+    # Python's command compiler complains if the only thing you submit
+    # is a comment, so detect that case first
+    if (grepl("^\\s*#", code))
+      return(TRUE)
+
+    # Python is picky about trailing whitespace, so ensure only a single
+    # newline follows the code to be submitted
+    code <- sub("\\s*$", "\n", code)
+
+    # now compile and run the code. we use 'single' mode to ensure that
+    # python auto-prints the statement as it is evaluated.
+    compiled <- tryCatch(builtins$compile(code, '<string>', 'single'), error = identity)
+    if (handle_error(compiled))
+      return(FALSE)
+
+    output <- py_capture_output(
+      tryCatch(builtins$eval(compiled, globals, locals), error = identity)
+    )
+
+    if (handle_error(output))
+      return(FALSE)
+
+    # ensure stdout, stderr flushed (required for Python 3)
+    sys$stdout$flush()
+    sys$stderr$flush()
+
+    # clean up trailing newlines (seems we occasionally get one too many
+    # newlines on print?)
+    if (grepl("\\n{2,}$", output))
+      substring(output, 1, nchar(output) - 1)
+    else
+      output
   }
 
   # extract the code to be run -- we'll attempt to run the code line by line
