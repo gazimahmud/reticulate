@@ -116,3 +116,11 @@ Ensure that syntax errors do not block document generation when `eval = FALSE`.
 ```{python, eval=FALSE}
 here be syntax errors
 ```
+
+The output from bare statements that we evaluate are also captured.
+
+```{python}
+"hello, world!"
+[x for x in range(1, 10)]
+```
+

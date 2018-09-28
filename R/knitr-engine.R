@@ -95,7 +95,7 @@ eng_python <- function(options) {
     # Python's command compiler complains if the only thing you submit
     # is a comment, so detect that case first
     if (grepl("^\\s*#", code))
-      return(TRUE)
+      return("")
 
     # Python is picky about trailing whitespace, so ensure only a single
     # newline follows the code to be submitted
@@ -105,14 +105,14 @@ eng_python <- function(options) {
     # python auto-prints the statement as it is evaluated.
     compiled <- tryCatch(builtins$compile(code, '<string>', 'single'), error = identity)
     if (handle_error(compiled))
-      return(FALSE)
+      return("")
 
     output <- py_capture_output(
       tryCatch(builtins$eval(compiled, globals, locals), error = identity)
     )
 
     if (handle_error(output))
-      return(FALSE)
+      return("")
 
     # ensure stdout, stderr flushed (required for Python 3)
     sys$stdout$flush()
